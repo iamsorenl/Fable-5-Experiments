@@ -24,6 +24,8 @@ const dom = {
   btnPause: $('btn-pause'),
   difficulty: $('difficulty'),
   switchmode: $('switchmode'),
+  legend: $('controls-legend'),
+  legendPause: $('legend-pause'),
 };
 
 const input = createInput(window);
@@ -368,6 +370,14 @@ function updateOverlays() {
   dom.btnAgain.classList.toggle('hidden', !showAgain);
   dom.btnPause.textContent = paused ? '▶' : '❚❚';
   dom.btnPause.classList.toggle('hidden', state.phase === 'fulltime');
+
+  // Show the controls legend on the pause screen; the same node moves back
+  // to the menu when unpaused so the two can never drift apart.
+  if (paused && dom.legend.parentElement !== dom.banner) {
+    dom.banner.insertBefore(dom.legend, dom.btnAgain);
+  } else if (!paused && dom.legend.parentElement !== dom.menu) {
+    dom.menu.insertBefore(dom.legend, dom.legendPause);
+  }
 }
 
 // ---------- Main loop: fixed timestep with accumulator ----------
