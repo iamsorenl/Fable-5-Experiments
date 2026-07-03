@@ -80,6 +80,9 @@ dom.btnAgain.addEventListener('click', () => {
 function startMatch(mode) {
   state = createMatchState({ mode, difficulty: selectedDifficulty });
   state.switchMode = selectedSwitchMode;
+  switchCycle[0].list = switchCycle[1].list = null;
+  switchCycle[0].age = switchCycle[1].age = Infinity;
+  stayCarrier[0] = stayCarrier[1] = null;
   setupKickoff(state, 0);
   renderer.reset();
   paused = false;
@@ -91,19 +94,31 @@ function startMatch(mode) {
 
 // ---------- Controlled-player switching ----------
 
-function nearestOutfielder(team) {
-  let nearest = -1;
-  let nearestD = Infinity;
-  for (let i = team * 4 + 1; i < team * 4 + 4; i++) {
-    const p = state.players[i];
-    const d = Math.hypot(p.x - state.ball.x, p.y - state.ball.y);
-    if (d < nearestD) {
-      nearestD = d;
-      nearest = i;
-    }
-  }
-  return nearest;
+function outfieldersByBallDistance(team) {
+  const idxs = [team * 4 + 1, team * 4 + 2, team * 4 + 3];
+  return idxs.sort((a, b) => {
+    const pa = state.players[a];
+    const pb = state.players[b];
+    return (
+      Math.hypot(pa.x - state.ball.x, pa.y - state.ball.y) -
+      Math.hypot(pb.x - state.ball.x, pb.y - state.ball.y)
+    );
+  });
 }
+
+function nearestOutfielder(team) {
+  return outfieldersByBallDistance(team)[0];
+}
+
+// Manual switch key: first press picks the teammate nearest the ball; quick
+// re-presses cycle through a snapshot of that order so every teammate is
+// reachable and targets don't shuffle mid-cycle.
+const SWITCH_CYCLE_WINDOW_S = 1.5;
+const switchCycle = [
+  { list: null, pos: -1, age: Infinity },
+  { list: null, pos: -1, age: Infinity },
+];
+const stayCarrier = [null, null]; // teammate currently at the ball (stay mode)
 
 function switchControlTo(team, idx) {
   state.controlled[team] = idx;
@@ -115,27 +130,54 @@ function resolveControlled(team, dt) {
   const idx = state.controlled[team];
   if (idx === null || idx === undefined) return;
 
+  switchCycle[team].age += dt;
+
   // Goalie key toggles keeper control on/off at any time.
   const keeperIdx = team * 4;
   if (input.goaliePressed(team)) {
     switchControlTo(team, idx === keeperIdx ? nearestOutfielder(team) : keeperIdx);
     return;
   }
+
+  // Manual switch key (both modes, works from the keeper too).
+  if (input.switchPressed(team)) {
+    const cyc = switchCycle[team];
+    if (!cyc.list || cyc.age > SWITCH_CYCLE_WINDOW_S) {
+      cyc.list = outfieldersByBallDistance(team);
+      cyc.pos = -1;
+    }
+    for (let step = 1; step <= cyc.list.length; step++) {
+      const cand = cyc.list[(cyc.pos + step) % cyc.list.length];
+      if (cand !== idx) {
+        cyc.pos = cyc.list.indexOf(cand);
+        switchControlTo(team, cand);
+        break;
+      }
+    }
+    cyc.age = 0;
+    return;
+  }
+
   // Keeper control was an explicit choice — never auto-switch away from it.
   if (state.players[idx].isKeeper) return;
 
   const nearest = nearestOutfielder(team);
 
   if (state.switchMode === 'stay') {
-    // Control stays put; it only follows possession — switch when a teammate
-    // takes the ball at their feet.
-    if (nearest !== idx) {
-      const np = state.players[nearest];
-      const d = Math.hypot(np.x - state.ball.x, np.y - state.ball.y);
-      if (d < CONFIG.DRIBBLE_RANGE) switchControlTo(team, nearest);
+    // Control stays put; it follows possession only when a teammate NEWLY
+    // takes the ball — so a manual pick isn't stolen back mid-dribble.
+    const np = state.players[nearest];
+    const d = Math.hypot(np.x - state.ball.x, np.y - state.ball.y);
+    const carrier = d < CONFIG.DRIBBLE_RANGE ? nearest : null;
+    if (carrier !== null && carrier !== idx && carrier !== stayCarrier[team]) {
+      switchControlTo(team, carrier);
     }
+    stayCarrier[team] = carrier;
     return;
   }
+
+  // A fresh manual pick sticks for the cycle window before auto reclaims it.
+  if (switchCycle[team].age < SWITCH_CYCLE_WINDOW_S) return;
 
   // Auto: nearest outfielder, but don't yank control mid-charge; switch only
   // after sustained hysteresis.

@@ -9,6 +9,7 @@ const MOVE_KEYS = [
 const PASS_KEYS = ['KeyC', 'Comma'];
 const SHOOT_KEYS = ['KeyV', 'Period'];
 const GOALIE_KEYS = ['KeyQ', 'Slash'];
+const SWITCH_KEYS = ['KeyE', 'KeyM'];
 
 // Keys whose default behavior (scrolling) must be suppressed. Space is not a
 // game control and must stay usable to activate focused menu buttons.
@@ -25,6 +26,7 @@ export function createInput(target = window) {
     pass: [false, false],
     shootReleased: [false, false],
     goalie: [false, false],
+    switch: [false, false],
     pause: false,
   };
 
@@ -35,6 +37,7 @@ export function createInput(target = window) {
     for (let slot = 0; slot < 2; slot++) {
       if (e.code === PASS_KEYS[slot]) edges.pass[slot] = true;
       if (e.code === GOALIE_KEYS[slot]) edges.goalie[slot] = true;
+      if (e.code === SWITCH_KEYS[slot]) edges.switch[slot] = true;
     }
     if (e.code === 'Escape') edges.pause = true;
   }
@@ -88,6 +91,10 @@ export function createInput(target = window) {
       return edges.goalie[slot];
     },
 
+    switchPressed(slot) {
+      return edges.switch[slot];
+    },
+
     pausePressed() {
       return edges.pause;
     },
@@ -96,6 +103,7 @@ export function createInput(target = window) {
       edges.pass[0] = edges.pass[1] = false;
       edges.shootReleased[0] = edges.shootReleased[1] = false;
       edges.goalie[0] = edges.goalie[1] = false;
+      edges.switch[0] = edges.switch[1] = false;
       edges.pause = false;
     },
 
