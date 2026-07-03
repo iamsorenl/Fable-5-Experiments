@@ -16,7 +16,9 @@ export const CONFIG = {
   PLAYER_SPEED: 260,      // units/s for a human-controlled player
 
   // Ball
-  BALL_FRICTION: 0.55,    // fraction of velocity retained per second (exp decay base)
+  BALL_FRICTION: 0.38,    // fraction of velocity retained per second (exp decay base)
+  BALL_ROLL_DECEL: 45,    // constant rolling resistance (units/s^2) — kills the slow tail
+  BALL_STOP_SPEED: 8,     // below this the ball settles to a stop
   BALL_MAX_SPEED: 900,
   WALL_BOUNCE: 0.72,      // restitution off boundary walls
 

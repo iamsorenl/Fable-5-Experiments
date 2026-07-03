@@ -86,12 +86,20 @@ function separatePlayers(state) {
 function stepBall(state, dt) {
   const ball = state.ball;
   sanitizeBody(ball);
+  // Two-part turf friction: exponential drag plus constant rolling
+  // resistance, so fast balls bleed speed AND the slow tail actually stops.
   const decay = Math.pow(CONFIG.BALL_FRICTION, dt);
   ball.vx *= decay;
   ball.vy *= decay;
-  if (Math.hypot(ball.vx, ball.vy) < 2) {
+  const sp = Math.hypot(ball.vx, ball.vy);
+  const roll = CONFIG.BALL_ROLL_DECEL * dt;
+  if (sp <= Math.max(CONFIG.BALL_STOP_SPEED, roll)) {
     ball.vx = 0;
     ball.vy = 0;
+  } else {
+    const k = (sp - roll) / sp;
+    ball.vx *= k;
+    ball.vy *= k;
   }
   ball.x += ball.vx * dt;
   ball.y += ball.vy * dt;
