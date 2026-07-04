@@ -151,6 +151,59 @@ export function doShoot(state, playerIdx, chargeS, error = 0, aimX = null, aimY 
   kickBall(state, playerIdx, aim.x * shotSpeed, aim.y * shotSpeed);
 }
 
+// Steal attempt by an off-ball player against an opposing carrier.
+// Returns 'win' | 'knock' | 'whiff', or null when there is nothing to steal
+// (no opposing carrier, or the ball is out of lunge range) — null attempts
+// are free, they don't consume the cooldown.
+export function attemptSteal(state, playerIdx) {
+  const p = state.players[playerIdx];
+  const ball = state.ball;
+  if (dist(p.x, p.y, ball.x, ball.y) > CONFIG.STEAL_RANGE) return null;
+
+  // An opponent must actually be carrying (touching-distance to the ball).
+  let carrier = null;
+  let carrierDist = CONFIG.DRIBBLE_RANGE + 4;
+  for (const o of state.players) {
+    if (o.team === p.team) continue;
+    const d = dist(o.x, o.y, ball.x, ball.y);
+    if (d < carrierDist) {
+      carrierDist = d;
+      carrier = o;
+    }
+  }
+  if (!carrier) return null;
+
+  const roll = Math.random();
+  if (roll < CONFIG.STEAL_WIN_P) {
+    // Clean steal: ball lands at the stealer's feet with carry grip.
+    const away = normalize(p.x - carrier.x, p.y - carrier.y);
+    const off = away.len > 0 ? away : { x: 0, y: -1 };
+    ball.x = p.x + off.x * (CONFIG.PLAYER_RADIUS + CONFIG.BALL_RADIUS + 2);
+    ball.y = p.y + off.y * (CONFIG.PLAYER_RADIUS + CONFIG.BALL_RADIUS + 2);
+    ball.vx = p.vx;
+    ball.vy = p.vy;
+    state.lastTouchTeam = p.team;
+    if (state._carry) {
+      state._carry.idx = playerIdx;
+      state._carry.t = 0.3;
+    }
+    return 'win';
+  }
+  if (roll < CONFIG.STEAL_WIN_P + CONFIG.STEAL_KNOCK_P) {
+    // Toe-poke: ball squirts loose in a random direction.
+    const a = Math.random() * Math.PI * 2;
+    ball.vx = Math.cos(a) * CONFIG.STEAL_KNOCK_SPEED;
+    ball.vy = Math.sin(a) * CONFIG.STEAL_KNOCK_SPEED;
+    state.lastTouchTeam = p.team;
+    if (state._carry) {
+      state._carry.idx = -1;
+      state._carry.t = 0;
+    }
+    return 'knock';
+  }
+  return 'whiff';
+}
+
 export function doClear(state, playerIdx) {
   if (!canKick(state, playerIdx)) return;
   const p = state.players[playerIdx];

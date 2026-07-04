@@ -33,6 +33,13 @@ export const CONFIG = {
   DRIBBLE_LEAD: 26,       // how far ahead of the player the ball is nudged
   DRIBBLE_PUSH: 1.15,     // ball speed multiplier relative to player speed while dribbling
 
+  // Stealing (shoot button while not on the ball)
+  STEAL_RANGE: 52,        // max player-to-ball distance for a steal attempt
+  STEAL_COOLDOWN_S: 0.9,  // time between attempts (out-of-range presses are free)
+  STEAL_WIN_P: 0.35,      // ball comes to the stealer's feet
+  STEAL_KNOCK_P: 0.35,    // ball flies off loose (remainder = whiff)
+  STEAL_KNOCK_SPEED: 340,
+
   // Kicking
   KICK_RANGE: 38,         // max distance to act on the ball (pass/shoot/clear)
   PASS_SPEED: 520,

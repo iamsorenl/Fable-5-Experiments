@@ -3,7 +3,7 @@
 import { CONFIG } from './config.js';
 import { createMatchState, setupKickoff, applyHalftime } from './entities.js';
 import { stepPhysics } from './physics.js';
-import { canKick, doPass, doShoot } from './actions.js';
+import { attemptSteal, canKick, doPass, doShoot } from './actions.js';
 import { updateAI } from './ai.js';
 import { createInput } from './input.js';
 import { createRenderer } from './render.js';
@@ -120,6 +120,8 @@ function startMatch(mode) {
   state.aimArrowOn = selectedAimArrow === 'on';
   state.stamina = [1, 1];
   state.staminaLock = [false, false];
+  state.stealCooldown = [0, 0];
+  state.stealFx = null;
   mouseSwapConsumed = false;
   switchCycle[0].list = switchCycle[1].list = null;
   switchCycle[0].age = switchCycle[1].age = Infinity;
@@ -260,6 +262,29 @@ function refillStamina(team) {
   state.staminaLock[team] = false;
 }
 
+// Off-ball shoot button = steal attempt. Real attempts start the cooldown;
+// out-of-range presses are free. A pulse effect reports the outcome.
+const STEAL_FX_COLORS = {
+  win: 'rgba(105, 221, 138, 0.9)',
+  knock: 'rgba(255, 255, 255, 0.9)',
+  whiff: 'rgba(160, 160, 160, 0.7)',
+  cooldown: 'rgba(224, 69, 47, 0.8)',
+};
+
+function trySteal(team) {
+  const idx = state.controlled[team];
+  if (idx === null || idx === undefined) return;
+  const p = state.players[idx];
+  if (state.stealCooldown[team] > 0) {
+    state.stealFx = { x: p.x, y: p.y, ttl: 0.2, max: 0.2, color: STEAL_FX_COLORS.cooldown };
+    return;
+  }
+  const result = attemptSteal(state, idx);
+  if (result === null) return;
+  state.stealCooldown[team] = CONFIG.STEAL_COOLDOWN_S;
+  state.stealFx = { x: p.x, y: p.y, ttl: 0.28, max: 0.28, color: STEAL_FX_COLORS[result] };
+}
+
 // P1 mouse scheme: follow the cursor; LMB hold-charge then release shoots at
 // the cursor; RMB passes toward it; LMB down on a teammate swaps to them.
 function applyMouseInput(team, dt) {
@@ -297,6 +322,8 @@ function applyMouseInput(team, dt) {
         return;
       }
     }
+    // Off the ball, LMB is a steal attempt instead of a shot.
+    if (!canKick(state, idx)) trySteal(team);
   }
 
   if (m.passPressed) {
@@ -336,6 +363,11 @@ function applyHumanInput(team, dt) {
   const speed = sprintSpeed(team, mv.x !== 0 || mv.y !== 0, dt);
   p.vx = mv.x * speed;
   p.vy = mv.y * speed;
+
+  // Off the ball, the shoot button is a steal attempt.
+  if (input.shootPressed(team) && !canKick(state, idx)) {
+    trySteal(team);
+  }
 
   // Pass button doubles as switch: with the ball it passes, without it it
   // selects the nearest teammate (re-press cycles).
@@ -377,6 +409,13 @@ function tick(dt) {
   }
 
   state.aimArrow = null; // re-set each tick by mouse input while playing
+  for (const t of [0, 1]) {
+    state.stealCooldown[t] = Math.max(0, state.stealCooldown[t] - dt);
+  }
+  if (state.stealFx) {
+    state.stealFx.ttl -= dt;
+    if (state.stealFx.ttl <= 0) state.stealFx = null;
+  }
 
   switch (state.phase) {
     case 'kickoff': {

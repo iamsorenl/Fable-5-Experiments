@@ -225,6 +225,19 @@ export function createRenderer(canvas) {
     ctx.fillRect(bx + 1, by + 1, (barW - 2) * frac, barH - 2);
   }
 
+  // Expanding, fading pulse marking a steal attempt and its outcome.
+  function drawStealFx(fx) {
+    const progress = 1 - fx.ttl / fx.max;
+    const radius = 22 + progress * 26;
+    ctx.globalAlpha = 1 - progress;
+    ctx.strokeStyle = fx.color;
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.arc(fx.x, fx.y, radius, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+  }
+
   // Sprint meter under a controlled player; hidden while full.
   function drawStaminaBar(p, frac, locked) {
     const barW = 44;
@@ -244,6 +257,7 @@ export function createRenderer(canvas) {
     drawPitch();
 
     if (state.aimArrow) drawAimArrow(state.aimArrow);
+    if (state.stealFx) drawStealFx(state.stealFx);
 
     for (let i = 0; i < state.players.length; i++) {
       const p = state.players[i];

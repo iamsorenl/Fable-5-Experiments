@@ -29,6 +29,7 @@ export function createInput(target = window, mouseTarget = null) {
   // Edge-trigger flags, cleared by endTick().
   const edges = {
     pass: [false, false],
+    shootPressed: [false, false],
     shootReleased: [false, false],
     goalie: [false, false],
     switch: [false, false],
@@ -79,6 +80,7 @@ export function createInput(target = window, mouseTarget = null) {
     held.add(e.code);
     for (let slot = 0; slot < 2; slot++) {
       if (e.code === PASS_KEYS[slot]) edges.pass[slot] = true;
+      if (e.code === SHOOT_KEYS[slot]) edges.shootPressed[slot] = true;
       if (e.code === GOALIE_KEYS[slot]) edges.goalie[slot] = true;
       if (e.code === SWITCH_KEYS[slot]) edges.switch[slot] = true;
     }
@@ -133,6 +135,10 @@ export function createInput(target = window, mouseTarget = null) {
       return held.has(SHOOT_KEYS[slot]);
     },
 
+    shootPressed(slot) {
+      return edges.shootPressed[slot];
+    },
+
     sprintHeld(slot) {
       return held.has(SPRINT_KEYS[slot]);
     },
@@ -168,6 +174,7 @@ export function createInput(target = window, mouseTarget = null) {
 
     endTick() {
       edges.pass[0] = edges.pass[1] = false;
+      edges.shootPressed[0] = edges.shootPressed[1] = false;
       edges.shootReleased[0] = edges.shootReleased[1] = false;
       edges.goalie[0] = edges.goalie[1] = false;
       edges.switch[0] = edges.switch[1] = false;
