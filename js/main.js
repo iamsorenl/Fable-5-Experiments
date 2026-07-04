@@ -263,26 +263,19 @@ function refillStamina(team) {
 }
 
 // Off-ball shoot button = steal attempt. Real attempts start the cooldown;
-// out-of-range presses are free. A pulse effect reports the outcome.
-const STEAL_FX_COLORS = {
-  win: 'rgba(105, 221, 138, 0.9)',
-  knock: 'rgba(255, 255, 255, 0.9)',
-  whiff: 'rgba(160, 160, 160, 0.7)',
-  cooldown: 'rgba(224, 69, 47, 0.8)',
-};
-
+// out-of-range presses are free. attemptSteal draws the outcome pulse itself;
+// here we only flash red when pressed during cooldown.
 function trySteal(team) {
   const idx = state.controlled[team];
   if (idx === null || idx === undefined) return;
   const p = state.players[idx];
   if (state.stealCooldown[team] > 0) {
-    state.stealFx = { x: p.x, y: p.y, ttl: 0.2, max: 0.2, color: STEAL_FX_COLORS.cooldown };
+    state.stealFx = { x: p.x, y: p.y, ttl: 0.2, max: 0.2, color: 'rgba(224, 69, 47, 0.8)' };
     return;
   }
-  const result = attemptSteal(state, idx);
-  if (result === null) return;
-  state.stealCooldown[team] = CONFIG.STEAL_COOLDOWN_S;
-  state.stealFx = { x: p.x, y: p.y, ttl: 0.28, max: 0.28, color: STEAL_FX_COLORS[result] };
+  if (attemptSteal(state, idx) !== null) {
+    state.stealCooldown[team] = CONFIG.STEAL_COOLDOWN_S;
+  }
 }
 
 // P1 mouse scheme: follow the cursor; LMB hold-charge then release shoots at

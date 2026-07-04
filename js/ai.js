@@ -2,7 +2,7 @@
 // Controls every player not listed in state.controlled.
 
 import { CONFIG } from './config.js';
-import { canKick, findPassTarget, doPass, doShoot, doClear } from './actions.js';
+import { attemptSteal, canKick, findPassTarget, doPass, doShoot, doClear } from './actions.js';
 
 // AI-only tuning (module-local; gameplay-wide constants live in config.js).
 const SHOT_RANGE = 340;        // distance to goal center that triggers a shot
@@ -52,6 +52,7 @@ function brainOf(state) {
       perceived: [null, null],       // possession each team's brain believes in
       reactT: [0, 0],                // time spent noticing a possession change
       cooldown: new Array(8).fill(0),
+      stealCd: new Array(8).fill(0),
       keeperHold: new Array(8).fill(0),
       keeperTy: new Array(8).fill(null), // lagged keeper tracking target
     };
@@ -354,6 +355,18 @@ function updateTeam(state, team, brain, dt) {
         }
         seek(pp, tx, ty, speed);
         assigned.add(presser);
+        // In lunge range of an opposing carrier: try the same steal move
+        // humans have, at a difficulty-scaled rate.
+        if (
+          brain.stealCd[presser] <= 0 &&
+          carIdx >= 0 &&
+          state.players[carIdx].team !== team &&
+          dist(pp.x, pp.y, state.ball.x, state.ball.y) <= CONFIG.STEAL_RANGE
+        ) {
+          if (attemptSteal(state, presser) !== null) {
+            brain.stealCd[presser] = diff.stealCooldownS || 1.6;
+          }
+        }
         // If the presser reaches the ball, it may hoof it forward.
         if (canKick(state, presser) && brain.cooldown[presser] <= 0) {
           updateCarrier(state, presser, diff, brain, dt);
@@ -388,6 +401,7 @@ export function updateAI(state, dt) {
 
   for (let i = 0; i < 8; i++) {
     if (brain.cooldown[i] > 0) brain.cooldown[i] -= dt;
+    if (brain.stealCd[i] > 0) brain.stealCd[i] -= dt;
   }
 
   // Perception with reaction delay: a team's brain only accepts a possession

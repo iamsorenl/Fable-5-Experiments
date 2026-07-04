@@ -174,6 +174,7 @@ export function attemptSteal(state, playerIdx) {
   if (!carrier) return null;
 
   const roll = Math.random();
+  let result;
   if (roll < CONFIG.STEAL_WIN_P) {
     // Clean steal: ball lands at the stealer's feet with carry grip.
     const away = normalize(p.x - carrier.x, p.y - carrier.y);
@@ -187,9 +188,8 @@ export function attemptSteal(state, playerIdx) {
       state._carry.idx = playerIdx;
       state._carry.t = 0.3;
     }
-    return 'win';
-  }
-  if (roll < CONFIG.STEAL_WIN_P + CONFIG.STEAL_KNOCK_P) {
+    result = 'win';
+  } else if (roll < CONFIG.STEAL_WIN_P + CONFIG.STEAL_KNOCK_P) {
     // Toe-poke: ball squirts loose in a random direction.
     const a = Math.random() * Math.PI * 2;
     ball.vx = Math.cos(a) * CONFIG.STEAL_KNOCK_SPEED;
@@ -199,10 +199,20 @@ export function attemptSteal(state, playerIdx) {
       state._carry.idx = -1;
       state._carry.t = 0;
     }
-    return 'knock';
+    result = 'knock';
+  } else {
+    result = 'whiff';
   }
-  return 'whiff';
+  // Outcome pulse for whoever attempted — human or AI.
+  state.stealFx = { x: p.x, y: p.y, ttl: 0.28, max: 0.28, color: STEAL_FX_COLORS[result] };
+  return result;
 }
+
+const STEAL_FX_COLORS = {
+  win: 'rgba(105, 221, 138, 0.9)',
+  knock: 'rgba(255, 255, 255, 0.9)',
+  whiff: 'rgba(160, 160, 160, 0.7)',
+};
 
 export function doClear(state, playerIdx) {
   if (!canKick(state, playerIdx)) return;

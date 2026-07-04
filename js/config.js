@@ -83,8 +83,8 @@ export const CONFIG = {
   // pressStandoff: how far goal-side of a carried ball the presser holds
   // instead of diving straight in (0 = press the ball directly).
   DIFFICULTY: {
-    easy:   { aiSpeedMult: 0.68, reactionDelayS: 0.60, shotError: 0.34, passError: 0.26, keeperLagS: 0.50, pressStandoff: 48 },
-    normal: { aiSpeedMult: 0.90, reactionDelayS: 0.25, shotError: 0.16, passError: 0.12, keeperLagS: 0.26, pressStandoff: 0 },
-    hard:   { aiSpeedMult: 1.00, reactionDelayS: 0.10, shotError: 0.07, passError: 0.05, keeperLagS: 0.10, pressStandoff: 0 },
+    easy:   { aiSpeedMult: 0.68, reactionDelayS: 0.60, shotError: 0.34, passError: 0.26, keeperLagS: 0.50, pressStandoff: 48, stealCooldownS: 2.6 },
+    normal: { aiSpeedMult: 0.90, reactionDelayS: 0.25, shotError: 0.16, passError: 0.12, keeperLagS: 0.26, pressStandoff: 0, stealCooldownS: 1.6 },
+    hard:   { aiSpeedMult: 1.00, reactionDelayS: 0.10, shotError: 0.07, passError: 0.05, keeperLagS: 0.10, pressStandoff: 0, stealCooldownS: 1.1 },
   },
 };
