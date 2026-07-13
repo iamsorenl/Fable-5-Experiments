@@ -1,10 +1,10 @@
-// Integration: boot, menu wiring, fixed-timestep loop, human input, phases, HUD.
+// Integration: boot, menu wiring, fixed-timestep loop, human input, HUD.
+// The simulation itself (phases, AI, physics) lives in engine.js.
 
 import { CONFIG } from './config.js';
-import { createMatchState, setupKickoff, applyHalftime } from './entities.js';
-import { stepPhysics } from './physics.js';
-import { attemptSteal, canKick, computeKeeperProtect, doPass, doShoot } from './actions.js';
-import { updateAI } from './ai.js';
+import { createMatchState, setupKickoff } from './entities.js';
+import { step } from './engine.js';
+import { attemptSteal, canKick, doPass, doShoot } from './actions.js';
 import { createInput } from './input.js';
 import { createRenderer } from './render.js';
 
@@ -45,7 +45,6 @@ let selectedControls = 'keys';   // P1: 'keys' | 'mouse'
 let selectedGoalie = 'swap';     // 'swap' = goalie key/click works | 'ai' = keeper always AI
 let selectedAimArrow = 'on';     // aim arrow in mouse mode
 let selectedKeeperBox = 'on';    // protected keeper possession in the inner box
-let pendingKickoffTeam = 0; // conceding team, restarts play after a goal
 let mouseSwapConsumed = false; // this LMB press was a teammate swap, not a shot
 
 // ---------- Menu wiring ----------
@@ -418,84 +417,20 @@ function tick(dt) {
     if (state.stealFx.ttl <= 0) state.stealFx = null;
   }
 
-  switch (state.phase) {
-    case 'kickoff': {
-      // Allow goalie-key swaps during the freeze ("at any time").
-      resolveControlled(0, dt);
-      resolveControlled(1, dt);
-      updateAI(state, dt); // drift-to-position only outside 'playing'
-      stepPhysics(state, dt);
-      // Ball stays dead on the spot until the freeze ends; incidental contact
-      // while it's pinned must not count as a touch.
-      state.ball.x = CONFIG.PITCH_W / 2;
-      state.ball.y = CONFIG.PITCH_H / 2;
-      state.ball.vx = 0;
-      state.ball.vy = 0;
-      state.lastTouchTeam = null;
-      state.phaseTimer -= dt;
-      if (state.phaseTimer <= 0) {
-        state.phase = 'playing';
-        state.phaseTimer = 0;
-      }
-      break;
-    }
-
-    case 'goal': {
-      updateAI(state, dt);
-      stepPhysics(state, dt);
-      state.phaseTimer -= dt;
-      if (state.phaseTimer <= 0) {
-        setupKickoff(state, pendingKickoffTeam);
-      }
-      break;
-    }
-
-    case 'halftime': {
-      updateAI(state, dt);
-      stepPhysics(state, dt);
-      state.phaseTimer -= dt;
-      if (state.phaseTimer <= 0) {
-        applyHalftime(state); // flips attackDir, kickoff for team 1
-      }
-      break;
-    }
-
-    case 'playing': {
-      resolveControlled(0, dt);
-      resolveControlled(1, dt);
-      applyHumanInput(0, dt);
-      applyHumanInput(1, dt);
-      updateAI(state, dt);
-      const events = stepPhysics(state, dt);
-      state.keeperProtect = state.keeperBoxOn ? computeKeeperProtect(state) : null;
-
-      for (const ev of events) {
-        if (ev.type === 'goal') {
-          state.score[ev.scoringTeam] += 1;
-          state.charge[0] = 0;
-          state.charge[1] = 0;
-          pendingKickoffTeam = 1 - ev.scoringTeam;
-          state.phase = 'goal';
-          state.phaseTimer = CONFIG.GOAL_PAUSE_S;
-        }
-      }
-
-      if (state.phase === 'playing') {
-        state.clockS += dt;
-        if (state.half === 1 && state.clockS >= CONFIG.HALF_LENGTH_S) {
-          state.phase = 'halftime';
-          state.phaseTimer = CONFIG.GOAL_PAUSE_S;
-        } else if (
-          state.half === 2 &&
-          state.clockS >= 2 * CONFIG.HALF_LENGTH_S
-        ) {
-          state.phase = 'fulltime';
-          state.phaseTimer = 0;
-        }
-      }
-      break;
-    }
+  // Human control + input run before the sim step; the engine never reads
+  // input, it only sees the velocities/actions already applied to state.
+  if (state.phase === 'kickoff') {
+    // Allow goalie-key swaps during the freeze ("at any time").
+    resolveControlled(0, dt);
+    resolveControlled(1, dt);
+  } else if (state.phase === 'playing') {
+    resolveControlled(0, dt);
+    resolveControlled(1, dt);
+    applyHumanInput(0, dt);
+    applyHumanInput(1, dt);
   }
+
+  step(state, dt);
 
   input.endTick();
 }

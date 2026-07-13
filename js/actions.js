@@ -123,7 +123,7 @@ export function doPass(state, playerIdx, dirX, dirY, error = 0) {
   let aim = normalize(tx - state.ball.x, ty - state.ball.y);
   if (aim.len === 0) return false;
   if (error > 0) {
-    aim = rotate(aim.x, aim.y, (Math.random() * 2 - 1) * error);
+    aim = rotate(aim.x, aim.y, (state.rng() * 2 - 1) * error);
   }
   kickBall(state, playerIdx, aim.x * CONFIG.PASS_SPEED, aim.y * CONFIG.PASS_SPEED);
   return true;
@@ -160,7 +160,7 @@ export function doShoot(state, playerIdx, chargeS, error = 0, aimX = null, aimY 
     }
   }
   if (error > 0) {
-    aim = rotate(aim.x, aim.y, (Math.random() * 2 - 1) * error);
+    aim = rotate(aim.x, aim.y, (state.rng() * 2 - 1) * error);
   }
 
   const t = Math.min(Math.max(chargeS / CONFIG.SHOT_CHARGE_MAX_S, 0), 1);
@@ -190,7 +190,7 @@ export function attemptSteal(state, playerIdx) {
   }
   if (!carrier) return null;
 
-  const roll = Math.random();
+  const roll = state.rng();
   let result;
   if (roll < CONFIG.STEAL_WIN_P) {
     // Clean steal: ball lands at the stealer's feet with carry grip.
@@ -208,7 +208,7 @@ export function attemptSteal(state, playerIdx) {
     result = 'win';
   } else if (roll < CONFIG.STEAL_WIN_P + CONFIG.STEAL_KNOCK_P) {
     // Toe-poke: ball squirts loose in a random direction.
-    const a = Math.random() * Math.PI * 2;
+    const a = state.rng() * Math.PI * 2;
     ball.vx = Math.cos(a) * CONFIG.STEAL_KNOCK_SPEED;
     ball.vy = Math.sin(a) * CONFIG.STEAL_KNOCK_SPEED;
     state.lastTouchTeam = p.team;

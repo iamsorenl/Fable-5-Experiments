@@ -5,23 +5,39 @@ import { CONFIG, keeperBox } from './config.js';
 import { attemptSteal, canKick, findPassTarget, doPass, doShoot, doClear } from './actions.js';
 
 // AI-only tuning (module-local; gameplay-wide constants live in config.js).
-const SHOT_RANGE = 340;        // distance to goal center that triggers a shot
-const PRESS_DIST = 85;         // opponent-within distance that counts as "pressed"
 const KICK_COOLDOWN_S = 0.45;  // min time between deliberate kicks per AI player
 const BALL_SHIFT_X = 0.22;     // how much anchors slide toward the ball (x)
 const BALL_SHIFT_Y = 0.35;     // how much anchors slide toward the ball (y)
-const POSSESSION_PUSH = 0.11;  // pitch-widths anchors push up / drop back
 const OPEN_OFFSET = 60;        // desired separation from nearest opponent when open
 const ARRIVE_RADIUS = 12;      // slow-down radius to stop anchor jitter
-const THROUGH_PASS_GAIN = 120; // teammate must be this much further upfield to earn a pass
 
-// Formation slots per outfield index-within-team (index 0 is the keeper).
-const SLOTS = [
-  null,
-  { xFrac: 0.22, yFrac: 0.50 }, // defender
-  { xFrac: 0.46, yFrac: 0.28 }, // upper mid
-  { xFrac: 0.46, yFrac: 0.72 }, // lower mid / striker
-];
+// Per-team tactical tunables. Team configs (state.teamConfig, set by
+// engine.createMatch) override these defaults field-by-field.
+export const DEFAULT_TEAM_CONFIG = {
+  shotRange: 340,        // distance to goal center that triggers a shot
+  pressDist: 85,         // opponent-within distance that counts as "pressed"
+  possessionPush: 0.11,  // pitch-widths anchors push up / drop back
+  throughPassGain: 120,  // teammate must be this much further upfield to earn a pass
+  stealCooldownS: null,  // steal aggression; null = use the difficulty's value
+  keeperClearDelayS: CONFIG.KEEPER_CLEAR_DELAY_S,
+  keeperProtectHoldS: CONFIG.KEEPER_PROTECT_HOLD_S,
+  // Formation slots per outfield index-within-team (keeper excluded).
+  slots: [
+    { xFrac: 0.22, yFrac: 0.50 }, // defender
+    { xFrac: 0.46, yFrac: 0.28 }, // upper mid
+    { xFrac: 0.46, yFrac: 0.72 }, // lower mid / striker
+  ],
+};
+
+// Merged tunables for a team, resolved once per match.
+function tuning(state, team) {
+  if (!state._tune) {
+    state._tune = [0, 1].map((t) =>
+      Object.assign({}, DEFAULT_TEAM_CONFIG, state.teamConfig && state.teamConfig[t])
+    );
+  }
+  return state._tune[team];
+}
 
 function dist(ax, ay, bx, by) {
   return Math.hypot(bx - ax, by - ay);
@@ -104,14 +120,15 @@ function carrierIndex(state) {
 // Formation anchor for an outfielder, shifted with the ball and by the
 // perceived possession posture.
 function anchor(state, p, posture) {
-  const slot = SLOTS[p.id % 4];
+  const tune = tuning(state, p.team);
+  const slot = tune.slots[(p.id % 4) - 1];
   const dir = state.attackDir[p.team];
   const ownGoalX = dir === 1 ? 0 : CONFIG.PITCH_W;
   let x = ownGoalX + dir * slot.xFrac * CONFIG.PITCH_W;
   let y = slot.yFrac * CONFIG.PITCH_H;
   x += (state.ball.x - x) * BALL_SHIFT_X;
   y += (state.ball.y - y) * BALL_SHIFT_Y;
-  x += dir * posture * POSSESSION_PUSH * CONFIG.PITCH_W;
+  x += dir * posture * tune.possessionPush * CONFIG.PITCH_W;
   const m = CONFIG.PLAYER_RADIUS + 4;
   return {
     x: clamp(x, m, CONFIG.PITCH_W - m),
@@ -168,8 +185,9 @@ function updateKeeper(state, idx, diff, brain, dt) {
     brain.keeperHold[idx] += dt;
     p.vx = 0;
     p.vy = 0;
+    const tune = tuning(state, p.team);
     const protectedNow = state.keeperProtect === p.team;
-    const hold = protectedNow ? CONFIG.KEEPER_PROTECT_HOLD_S : CONFIG.KEEPER_CLEAR_DELAY_S;
+    const hold = protectedNow ? tune.keeperProtectHoldS : tune.keeperClearDelayS;
     if (brain.keeperHold[idx] >= hold && brain.cooldown[idx] <= 0) {
       let passed = false;
       if (protectedNow) {
@@ -207,6 +225,7 @@ function updateKeeper(state, idx, diff, brain, dt) {
 
 function updateCarrier(state, idx, diff, brain, dt) {
   const p = state.players[idx];
+  const tune = tuning(state, p.team);
   const goal = goalCenter(state, p.team, false);
   const dGoal = dist(p.x, p.y, goal.x, goal.y);
   const gx = goal.x - p.x;
@@ -216,14 +235,14 @@ function updateCarrier(state, idx, diff, brain, dt) {
   const dirY = gy / gd;
 
   if (canKick(state, idx) && brain.cooldown[idx] <= 0) {
-    if (dGoal < SHOT_RANGE) {
-      const charge = clamp(dGoal / SHOT_RANGE, 0.45, 1) * CONFIG.SHOT_CHARGE_MAX_S;
+    if (dGoal < tune.shotRange) {
+      const charge = clamp(dGoal / tune.shotRange, 0.45, 1) * CONFIG.SHOT_CHARGE_MAX_S;
       doShoot(state, idx, charge, diff.shotError);
       brain.cooldown[idx] = KICK_COOLDOWN_S;
       return;
     }
     const { d: oppD } = nearestOpponent(state, p);
-    if (oppD < PRESS_DIST) {
+    if (oppD < tune.pressDist) {
       if (doPass(state, idx, dirX, dirY, diff.passError)) {
         brain.cooldown[idx] = KICK_COOLDOWN_S;
         return;
@@ -233,8 +252,8 @@ function updateCarrier(state, idx, diff, brain, dt) {
       const mate = findPassTarget(state, idx, dirX, dirY);
       if (
         mate != null &&
-        progress(state, state.players[mate]) - progress(state, p) > THROUGH_PASS_GAIN &&
-        Math.random() < dt * 0.9
+        progress(state, state.players[mate]) - progress(state, p) > tune.throughPassGain &&
+        state.rng() < dt * 0.9
       ) {
         if (doPass(state, idx, dirX, dirY, diff.passError)) {
           brain.cooldown[idx] = KICK_COOLDOWN_S;
@@ -386,7 +405,9 @@ function updateTeam(state, team, brain, dt) {
           dist(pp.x, pp.y, state.ball.x, state.ball.y) <= CONFIG.STEAL_RANGE
         ) {
           if (attemptSteal(state, presser) !== null) {
-            brain.stealCd[presser] = diff.stealCooldownS || 1.6;
+            const t = tuning(state, team);
+            brain.stealCd[presser] =
+              t.stealCooldownS != null ? t.stealCooldownS : diff.stealCooldownS || 1.6;
           }
         }
         // If the presser reaches the ball, it may hoof it forward.

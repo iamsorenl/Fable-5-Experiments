@@ -22,7 +22,20 @@ export function homeToWorld(home, attackDir) {
   return { x: CX + attackDir * home.x, y: home.y };
 }
 
-export function createMatchState({ mode, difficulty }) {
+// mulberry32: tiny seeded PRNG. All gameplay randomness draws from state.rng
+// so a match replays identically from (configs, seed).
+function mulberry32(seed) {
+  let a = seed >>> 0;
+  return function () {
+    a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), a | 1);
+    t = (t + Math.imul(t ^ (t >>> 7), t | 61)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+// mode: 'single' | 'two' | 'sim' (headless AI-vs-AI, no controlled players).
+export function createMatchState({ mode, difficulty, seed }) {
   const players = [];
   for (let i = 0; i < 8; i++) {
     const team = i < 4 ? 0 : 1;
@@ -40,10 +53,12 @@ export function createMatchState({ mode, difficulty }) {
   }
 
   const state = {
-    difficulty: mode === 'single' ? difficulty : 'normal',
+    difficulty: mode === 'two' ? 'normal' : difficulty,
+    rng: mulberry32(seed == null ? (Math.random() * 2 ** 32) >>> 0 : seed),
     ball: { x: CX, y: CY, vx: 0, vy: 0, r: CONFIG.BALL_RADIUS },
     players,
-    controlled: [3, mode === 'two' ? 7 : null],
+    controlled: [mode === 'sim' ? null : 3, mode === 'two' ? 7 : null],
+    pendingKickoffTeam: 0, // conceding team, restarts play after a goal
     switchTimer: [0, 0],
     charge: [0, 0],
     score: [0, 0],
