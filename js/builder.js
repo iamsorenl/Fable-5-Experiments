@@ -48,7 +48,7 @@ function sliderRow(parent, label, { min, max, step }, value, onInput) {
   parent.appendChild(row);
 }
 
-export function initBuilder({ onWatch, onPlay }) {
+export function initBuilder({ onWatch, onPlay, onPublish }) {
   const root = $('builder');
   const team = loadTeam();
 
@@ -156,5 +156,17 @@ export function initBuilder({ onWatch, onPlay }) {
   $('btn-playteam').addEventListener('click', () => {
     root.classList.add('hidden');
     onPlay(opponent());
+  });
+
+  // Publish to the online league (league.js handles auth/placement); the
+  // returned one-liner (or the error) lands in the status row.
+  const publishStatus = $('publish-status');
+  $('btn-publish').addEventListener('click', async () => {
+    publishStatus.textContent = 'Publishing…';
+    try {
+      publishStatus.textContent = await onPublish(team);
+    } catch (e) {
+      publishStatus.textContent = e.message;
+    }
   });
 }

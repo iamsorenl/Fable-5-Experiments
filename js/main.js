@@ -9,6 +9,7 @@ import { attemptSteal, canKick, doPass, doShoot } from './actions.js';
 import { createInput } from './input.js';
 import { createRenderer } from './render.js';
 import { initBuilder } from './builder.js';
+import { initLeague, publishFlow } from './league.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -36,6 +37,7 @@ const dom = {
   legendPause: $('legend-pause'),
   legendP1Keys: $('legend-p1-keys'),
   legendP1Mouse: $('legend-p1-mouse'),
+  replayNote: $('replay-note'),
 };
 
 const input = createInput(window, $('game'));
@@ -117,6 +119,14 @@ dom.btn2p.addEventListener('click', () => startMatch('two'));
 initBuilder({
   onWatch: (mine, opp) => startMatch('watch', [mine, opp], [mine.name, opp.name]),
   onPlay: (opp) => startMatch('single', [null, opp], [null, opp.name]),
+  onPublish: (team) => publishFlow(team),
+});
+
+// League replays: re-run the deterministic sim from the stored seed +
+// config snapshots; oldEngine flags a match recorded by an older engine.
+initLeague({
+  onReplay: (cfgA, cfgB, seed, oldEngine) =>
+    startMatch('watch', [cfgA, cfgB], [cfgA.name, cfgB.name], seed, oldEngine),
 });
 dom.btnAgain.addEventListener('click', () => {
   state = null;
@@ -125,13 +135,15 @@ dom.btnAgain.addEventListener('click', () => {
   dom.hud.classList.add('hidden');
   dom.banner.classList.add('hidden');
   dom.btnAgain.classList.add('hidden');
+  dom.replayNote.classList.add('hidden');
 });
 
 // mode 'watch' renders an AI-vs-AI test match (no human input); teamConfigs
-// [a, b] feed the team tactics/attributes, names label the HUD.
-function startMatch(mode, teamConfigs = null, names = null) {
+// [a, b] feed the team tactics/attributes, names label the HUD. seed makes
+// the match a replay; oldEngine shows the stale-engine notice.
+function startMatch(mode, teamConfigs = null, names = null, seed = undefined, oldEngine = false) {
   if (mode === 'watch') {
-    state = createMatch(teamConfigs[0], teamConfigs[1]);
+    state = createMatch(teamConfigs[0], teamConfigs[1], seed);
   } else {
     state = createMatchState({ mode, difficulty: selectedDifficulty });
     if (teamConfigs) state.teamConfig = teamConfigs;
@@ -159,6 +171,7 @@ function startMatch(mode, teamConfigs = null, names = null) {
   dom.hud.classList.remove('hidden');
   dom.banner.classList.add('hidden');
   dom.btnAgain.classList.add('hidden');
+  dom.replayNote.classList.toggle('hidden', !oldEngine);
 }
 
 // ---------- Controlled-player switching ----------

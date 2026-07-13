@@ -58,6 +58,7 @@
         <button id="btn-1p" class="btn btn-primary">1 Player</button>
         <button id="btn-2p" class="btn btn-primary">2 Players</button>
         <button id="btn-builder" class="btn btn-primary">Team Builder</button>
+        <button id="btn-league" class="btn btn-primary">AI League</button>
       </div>
 
       <div class="controls-legend" id="controls-legend">
@@ -119,9 +120,24 @@
         <select id="opponent"></select>
         <button id="btn-watch" class="btn btn-primary">Watch Match</button>
         <button id="btn-playteam" class="btn btn-primary">Play Match</button>
+        <button id="btn-publish" class="btn btn-primary">Publish</button>
         <button id="btn-builder-back" class="btn">Back</button>
       </div>
+      <p id="publish-status" class="league-status"></p>
     </div>
+
+    <div id="league" class="hidden">
+      <h1 class="builder-title">AI League</h1>
+      <div id="league-auth" class="league-auth"></div>
+      <p id="league-status" class="league-status"></p>
+      <div id="league-board" class="league-panel"></div>
+      <div id="league-history" class="league-panel hidden"></div>
+      <div class="builder-actions">
+        <button id="btn-league-back" class="btn">Back</button>
+      </div>
+    </div>
+
+    <div id="replay-note" class="hidden">Replay from an older engine version — result may differ from the recorded score.</div>
 
     <div id="banner" class="hidden">
       <div id="banner-text">GOAL!</div>

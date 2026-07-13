@@ -1,0 +1,7 @@
+# Minimal Supabase CLI config. project_id is a local folder label; linking to
+# your real project happens via `supabase link --project-ref <ref>`.
+project_id = "fable-5-soccer-game"
+
+[functions.play-match]
+# The function checks auth itself, but keep the gateway JWT check on too.
+verify_jwt = true

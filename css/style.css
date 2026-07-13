@@ -391,6 +391,127 @@ body {
   padding: 8px 12px;
 }
 
+/* ---------- AI League ---------- */
+
+#league {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  background: #0d1115;
+  overflow-y: auto;
+}
+
+.league-auth {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.league-user {
+  font-size: 14px;
+  font-weight: 600;
+  opacity: 0.8;
+}
+
+.league-email {
+  font: inherit;
+  font-weight: 700;
+  color: #eef2f5;
+  background: #22282e;
+  border: 2px solid #454f58;
+  border-radius: 8px;
+  padding: 6px 10px;
+  min-width: 220px;
+}
+
+.league-status {
+  font-size: 14px;
+  min-height: 18px;
+  color: #69dd8a;
+}
+
+.league-panel {
+  max-height: 40vh;
+  overflow-y: auto;
+}
+
+.league-table {
+  border-collapse: collapse;
+  font-size: 15px;
+}
+
+.league-table th,
+.league-table td {
+  padding: 6px 14px;
+  text-align: left;
+}
+
+.league-table th {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  opacity: 0.6;
+}
+
+.league-table tr:nth-child(even) {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.league-link {
+  font: inherit;
+  font-weight: 700;
+  color: #6ea0ff;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+}
+
+.league-link:hover {
+  text-decoration: underline;
+}
+
+.league-challenge {
+  font-size: 13px;
+  padding: 4px 12px;
+}
+
+.league-form {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.14em;
+}
+
+.league-history-title {
+  font-size: 15px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin: 10px 0 6px;
+  color: #6ea0ff;
+}
+
+.league-loading {
+  font-size: 14px;
+  opacity: 0.7;
+}
+
+#replay-note {
+  position: absolute;
+  top: 66px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 5px 14px;
+  background: rgba(10, 14, 18, 0.82);
+  border-radius: 8px;
+  font-size: 13px;
+  color: #ffcf6e;
+  pointer-events: none;
+}
+
 /* ---------- Banner ---------- */
 
 #banner {
