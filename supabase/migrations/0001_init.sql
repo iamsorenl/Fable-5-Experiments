@@ -19,8 +19,7 @@ create table public.teams (
   wins int not null default 0,
   draws int not null default 0,
   losses int not null default 0,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
+  created_at timestamptz not null default now()
 );
 
 create table public.matches (
@@ -75,7 +74,7 @@ create policy "update own team" on public.teams
 -- with column-level grants (RLS is row-level; grants gate the columns).
 revoke insert, update, delete on public.teams from anon, authenticated;
 grant insert (id, owner, name, config, version) on public.teams to authenticated;
-grant update (name, config, version, updated_at) on public.teams to authenticated;
+grant update (name, config, version) on public.teams to authenticated;
 
 -- No client writes matches; there are no insert/update policies and no grants.
 revoke insert, update, delete on public.matches from anon, authenticated;

@@ -2,7 +2,7 @@
 // publish flow used by the builder. All data comes through net.js; replays
 // re-run the deterministic sim client-side from the stored seed + configs.
 
-import { CONFIG_VERSION } from './team.js';
+import { ENGINE_VERSION } from './engine.js';
 import * as net from './net.js';
 
 const $ = (id) => document.getElementById(id);
@@ -103,6 +103,13 @@ async function renderBoard() {
     row.append(el('td', 'league-form', formFor(t.id, recent)));
 
     const actCell = el('td');
+    // Anyone can play any published team — unranked scouting/fun.
+    const play = el('button', 'btn league-challenge', 'Play');
+    play.addEventListener('click', () => {
+      $('league').classList.add('hidden');
+      onPlayCb(t.config, t.name);
+    });
+    actCell.append(play);
     if (user && myTeam && t.id !== myTeam.id) {
       const btn = el('button', 'btn league-challenge', 'Challenge');
       btn.addEventListener('click', async () => {
@@ -133,6 +140,7 @@ async function renderBoard() {
 // ---------- Match history + replay ----------
 
 let onReplayCb = null;
+let onPlayCb = null;
 
 async function renderHistory(team) {
   const box = $('league-history');
@@ -155,12 +163,17 @@ async function renderHistory(team) {
     const delta = m.team_a === team.id ? m.elo_delta_a : m.elo_delta_b;
     row.append(el('td', null, `${delta >= 0 ? '+' : ''}${delta}`));
 
-    // Replays are free: same engine, same configs, same seed.
+    // Replays are free: same engine, same configs, same seed. The stored
+    // score lets the viewer flag a diverged replay instead of lying.
     const cell = el('td');
     const replay = el('button', 'btn league-challenge', 'Replay');
     replay.addEventListener('click', () => {
       $('league').classList.add('hidden');
-      onReplayCb(m.config_a, m.config_b, m.seed, m.engine_version !== CONFIG_VERSION);
+      onReplayCb(
+        m.config_a, m.config_b, m.seed,
+        m.engine_version !== ENGINE_VERSION,
+        [m.score_a, m.score_b]
+      );
     });
     cell.append(replay);
     row.append(cell);
@@ -206,8 +219,9 @@ export async function publishFlow(team) {
 
 // ---------- Wiring ----------
 
-export function initLeague({ onReplay }) {
+export function initLeague({ onReplay, onPlay }) {
   onReplayCb = onReplay;
+  onPlayCb = onPlay;
 
   $('btn-league').addEventListener('click', async () => {
     $('league').classList.remove('hidden');

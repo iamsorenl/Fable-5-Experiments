@@ -45,6 +45,7 @@ const renderer = createRenderer($('game'));
 
 let state = null;
 let paused = false;
+const replayNoteDefault = dom.replayNote.textContent; // stale-engine message
 let selectedDifficulty = 'normal';
 let selectedSwitchMode = 'auto'; // 'auto' = nearest-to-ball | 'stay' = follow possession only
 let selectedControls = 'keys';   // P1: 'keys' | 'mouse'
@@ -123,10 +124,13 @@ initBuilder({
 });
 
 // League replays: re-run the deterministic sim from the stored seed +
-// config snapshots; oldEngine flags a match recorded by an older engine.
+// config snapshots; oldEngine flags a match recorded by an older engine,
+// expected is the stored score (a mismatch shows the diverged notice).
+// Play = unranked human match vs any published team, straight off the board.
 initLeague({
-  onReplay: (cfgA, cfgB, seed, oldEngine) =>
-    startMatch('watch', [cfgA, cfgB], [cfgA.name, cfgB.name], seed, oldEngine),
+  onReplay: (cfgA, cfgB, seed, oldEngine, expected) =>
+    startMatch('watch', [cfgA, cfgB], [cfgA.name, cfgB.name], seed, oldEngine, expected),
+  onPlay: (cfg, name) => startMatch('single', [null, cfg], [null, name]),
 });
 dom.btnAgain.addEventListener('click', () => {
   state = null;
@@ -140,10 +144,12 @@ dom.btnAgain.addEventListener('click', () => {
 
 // mode 'watch' renders an AI-vs-AI test match (no human input); teamConfigs
 // [a, b] feed the team tactics/attributes, names label the HUD. seed makes
-// the match a replay; oldEngine shows the stale-engine notice.
-function startMatch(mode, teamConfigs = null, names = null, seed = undefined, oldEngine = false) {
+// the match a replay; oldEngine shows the stale-engine notice; expectedScore
+// is the recorded result a replay must reproduce.
+function startMatch(mode, teamConfigs = null, names = null, seed = undefined, oldEngine = false, expectedScore = null) {
   if (mode === 'watch') {
     state = createMatch(teamConfigs[0], teamConfigs[1], seed);
+    state.replayScore = expectedScore; // render-only: divergence check at FT
   } else {
     state = createMatchState({ mode, difficulty: selectedDifficulty });
     if (teamConfigs) state.teamConfig = teamConfigs;
@@ -154,7 +160,9 @@ function startMatch(mode, teamConfigs = null, names = null, seed = undefined, ol
   state.controlsMode = selectedControls;
   state.goalieMode = selectedGoalie;
   state.aimArrowOn = selectedAimArrow === 'on';
-  state.keeperBoxOn = selectedKeeperBox === 'on';
+  // The keeper-box toggle changes sim behavior; watch matches (and replays)
+  // must keep the keeperBoxOn=true that createMatch/the server used.
+  if (mode !== 'watch') state.keeperBoxOn = selectedKeeperBox === 'on';
   state.keeperProtect = null;
   state.stamina = [1, 1];
   state.staminaLock = [false, false];
@@ -171,6 +179,7 @@ function startMatch(mode, teamConfigs = null, names = null, seed = undefined, ol
   dom.hud.classList.remove('hidden');
   dom.banner.classList.add('hidden');
   dom.btnAgain.classList.add('hidden');
+  dom.replayNote.textContent = replayNoteDefault; // undo any diverged message
   dom.replayNote.classList.toggle('hidden', !oldEngine);
 }
 
@@ -503,6 +512,15 @@ function updateOverlays() {
           ? `Blue Wins ${a} – ${b}`
           : `Red Wins ${b} – ${a}`;
     showAgain = true;
+    // Determinism is per-JS-engine at the last floating-point bit; if this
+    // browser re-simulated a different score, say so instead of lying.
+    if (
+      state.replayScore &&
+      (a !== state.replayScore[0] || b !== state.replayScore[1])
+    ) {
+      dom.replayNote.textContent = `Replay diverged — recorded score was ${state.replayScore[0]} – ${state.replayScore[1]} (browser floating-point differs from the server).`;
+      dom.replayNote.classList.remove('hidden');
+    }
   }
 
   dom.banner.classList.toggle('hidden', text === null);

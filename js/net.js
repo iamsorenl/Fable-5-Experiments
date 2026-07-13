@@ -98,7 +98,7 @@ export async function fetchLeaderboard(limit = 50) {
   return unwrap(
     await supa
       .from('teams')
-      .select('id, name, elo, wins, draws, losses, owner, profiles(username)')
+      .select('id, name, elo, wins, draws, losses, owner, config, profiles(username)')
       .order('elo', { ascending: false })
       .limit(limit)
   );

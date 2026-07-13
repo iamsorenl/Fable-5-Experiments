@@ -8,6 +8,12 @@ import { stepPhysics } from './physics.js';
 import { computeKeeperProtect } from './actions.js';
 import { updateAI } from './ai.js';
 
+// Bump on ANY change that alters sim outcomes (physics, AI, actions, config
+// tunables) — matches record it so replays from an older engine show a notice
+// instead of silently re-running wrong. Distinct from team.js CONFIG_VERSION,
+// which only tracks the team config schema.
+export const ENGINE_VERSION = 1;
+
 // AI-vs-AI match: no controlled players, tactics come from the team configs
 // (fields default per ai.js DEFAULT_TEAM_CONFIG).
 export function createMatch(configA, configB, seed) {

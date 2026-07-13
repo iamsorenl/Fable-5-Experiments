@@ -8,11 +8,11 @@
 
 import { createClient } from "npm:@supabase/supabase-js@2";
 // The game's own modules — plain ES modules, Deno-safe, no browser globals.
-import { validateTeam, CONFIG_VERSION } from "../../../js/team.js";
-import { simulateMatch } from "../../../js/engine.js";
+import { validateTeam } from "../../../js/team.js";
+import { simulateMatch, ENGINE_VERSION } from "../../../js/engine.js";
 import { eloDelta, resultFromScore } from "../../../js/elo.js";
 
-const CHALLENGES_PER_HOUR = 10; // per-team rate limit (challenge mode)
+const CHALLENGES_PER_HOUR = 10; // per-team hourly rate limit (both modes)
 const PLACEMENT_COUNT = 5;
 
 const CORS = {
@@ -55,7 +55,7 @@ async function playOne(service: ReturnType<typeof createClient>, a: TeamRow, b: 
     p_score_b: score[1],
     p_delta_a: deltaA,
     p_delta_b: deltaB,
-    p_engine_version: CONFIG_VERSION,
+    p_engine_version: ENGINE_VERSION,
     p_config_a: a.config,
     p_config_b: b.config,
   });
@@ -104,18 +104,21 @@ Deno.serve(async (req) => {
   const check = validateTeam(mine.config);
   if (!check.ok) return json({ error: "invalid team config", details: check.errors }, 422);
 
-  if (mode === "challenge") {
-    // Per-team hourly rate limit on challenger-initiated matches.
-    const hourAgo = new Date(Date.now() - 3600_000).toISOString();
-    const { count } = await service
-      .from("matches")
-      .select("id", { count: "exact", head: true })
-      .eq("team_a", teamId)
-      .gte("created_at", hourAgo);
-    if ((count ?? 0) >= CHALLENGES_PER_HOUR) {
-      return json({ error: `rate limit: ${CHALLENGES_PER_HOUR} matches/hour` }, 429);
-    }
+  // Per-team hourly rate limit on caller-initiated matches, both modes —
+  // placement runs 5 sims per call and moves opponents' ratings too. Fails
+  // closed: a broken count query must not skip the limit.
+  const hourAgo = new Date(Date.now() - 3600_000).toISOString();
+  const { count, error: countErr } = await service
+    .from("matches")
+    .select("id", { count: "exact", head: true })
+    .eq("team_a", teamId)
+    .gte("created_at", hourAgo);
+  if (countErr) return json({ error: "rate limit check failed, try again" }, 500);
+  if ((count ?? 0) >= CHALLENGES_PER_HOUR) {
+    return json({ error: `rate limit: ${CHALLENGES_PER_HOUR} matches/hour` }, 429);
+  }
 
+  if (mode === "challenge") {
     if (!opponentId || opponentId === teamId) {
       return json({ error: "challenge needs a different opponentId" }, 400);
     }

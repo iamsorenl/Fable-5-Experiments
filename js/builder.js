@@ -53,7 +53,6 @@ export function initBuilder({ onWatch, onPlay, onPublish }) {
   const team = loadTeam();
 
   function save() {
-    team.version += 1; // every edit bumps the config version
     localStorage.setItem(STORAGE_KEY, JSON.stringify(team));
   }
 
@@ -163,6 +162,8 @@ export function initBuilder({ onWatch, onPlay, onPublish }) {
   const publishStatus = $('publish-status');
   $('btn-publish').addEventListener('click', async () => {
     publishStatus.textContent = 'Publishing…';
+    team.version += 1; // one bump per publish: the edit marker match rows record
+    save();
     try {
       publishStatus.textContent = await onPublish(team);
     } catch (e) {
